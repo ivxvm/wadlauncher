@@ -1,0 +1,15 @@
+[package]
+name = "drpcl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.20.1"
+rfd = "0.10.0"
+confy = "0.5.1"
+serde = "^1.0"
+serde_derive = "^1.0"
+wad = "0.3.2"
+regex = "1.7.0"
+discord-rpc-client = "0.3.0"
+window_titles = { git = "https://github.com/HiruNya/window_titles" }
