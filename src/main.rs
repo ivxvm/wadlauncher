@@ -114,7 +114,13 @@ impl eframe::App for App {
                     .arg("-iwad")
                     .arg(cfg.iwad_path.as_ref().unwrap());
 
-                let wadname = get_wad_name(&cfg.input_paths.as_ref().unwrap()[0]);
+                let first_wadfile_path = &cfg.input_paths.as_ref().unwrap()[0];
+                let title = get_wad_title(first_wadfile_path).unwrap_or_else(|| {
+                    let file_name = Path::new(first_wadfile_path.as_str()).file_stem().unwrap();
+                    let result = file_name.to_str().unwrap().to_owned();
+                    println!("Using filename as a title instead: {}", result);
+                    result
+                });
 
                 println!("Launching game:\n{:?}\n", cmd);
                 cmd.spawn().unwrap();
@@ -146,7 +152,7 @@ impl eframe::App for App {
 
                             if let Err(why) = drpc_client.set_activity(|a| {
                                 println!("Setting discord presence...");
-                                a.details(format!("{} - {}", wadname, level))
+                                a.details(format!("{} - {}", title, level))
                                     .assets(|ass| ass.large_image("doom_ii").large_text("Doom 2"))
                             }) {
                                 println!("Failed to set presence: {}", why);
@@ -169,23 +175,30 @@ impl eframe::App for App {
     }
 }
 
-fn get_wad_name(path: &String) -> String {
+fn get_wad_title(path: &String) -> Option<String> {
     let re = Regex::new(r"Title\s+:(.+)").unwrap();
 
-    println!("Loading wad file: {}", path);
-    let wad = load_wad_file(path).expect("Couldn't load the wad!");
+    println!("get_wad_title: Loading WAD file: {}", path);
+    let wad = load_wad_file(path).expect("get_wad_title: Couldn't load the WAD!");
 
-    for entry in wad.entry_iter() {
-        if entry.id.display() == "WADINFO" {
-            println!("Found WADINFO lump, searching for title...");
-            let capture = re.captures_iter(entry.lump).next().unwrap();
-            let title = std::str::from_utf8(capture.get(1).unwrap().as_bytes())
-                .unwrap()
-                .trim();
-            println!("Found wad title: {}", title);
-            return title.to_owned();
+    let wadinfo = wad
+        .entry_iter()
+        .find(|entry| entry.id.display() == "WADINFO");
+
+    if let Some(entry) = wadinfo {
+        let title = re.captures_iter(entry.lump).next().map(|capture| {
+            let first_capture_bytes = capture.get(1).unwrap().as_bytes();
+            let first_capture_str = std::str::from_utf8(first_capture_bytes).unwrap();
+            first_capture_str.trim().to_owned()
+        });
+
+        if title.is_none() {
+            println!("get_wad_title: Couldn't find the WAD title!");
         }
-    }
 
-    panic!("Couldn't find the wad title!")
+        title
+    } else {
+        println!("get_wad_title: Couldn't find the WADINFO lump!");
+        None
+    }
 }
