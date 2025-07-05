@@ -21,7 +21,7 @@ fn main() {
     config.input_paths.get_or_insert_with(|| Vec::new());
 
     eframe::run_native(
-        "Doom Discord RPC Launcher",
+        "wadlauncher",
         eframe::NativeOptions {
             viewport: eframe::egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
             ..Default::default()

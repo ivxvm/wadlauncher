@@ -808,17 +808,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
-name = "drpcl"
-version = "0.1.0"
-dependencies = [
- "confy",
- "eframe",
- "serde",
- "serde_derive",
- "tinyfiledialogs",
-]
-
-[[package]]
 name = "ecolor"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2904,6 +2893,17 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "wadlauncher"
+version = "0.2.0"
+dependencies = [
+ "confy",
+ "eframe",
+ "serde",
+ "serde_derive",
+ "tinyfiledialogs",
+]
 
 [[package]]
 name = "walkdir"
