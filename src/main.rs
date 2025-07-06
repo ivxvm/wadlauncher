@@ -74,6 +74,21 @@ fn load_titlepic_lump(iwad_path: Option<&str>, wad_path: Option<&str>) -> Option
     None
 }
 
+fn get_titlepic_dimensions(data: &[u8]) -> Option<(usize, usize)> {
+    if data.len() < 4 {
+        return None;
+    }
+
+    let width = u16::from_le_bytes([data[0], data[1]]) as usize;
+    let height = u16::from_le_bytes([data[2], data[3]]) as usize;
+
+    if width == 0 || height == 0 || data.len() < 4 + width * 4 {
+        return None;
+    } else {
+        Some((width, height))
+    }
+}
+
 impl App {
     fn load_titlepic(
         &mut self,
@@ -84,8 +99,9 @@ impl App {
         self.titlepic_texture = None;
         let palette = load_playpal_lump(iwad_path, wad_path)?;
         let titlepic = load_titlepic_lump(iwad_path, wad_path)?;
-        let img = decode_doom_picture(&titlepic, &palette, 320, 200)?;
-        let color_img = ColorImage::from_rgba_unmultiplied([320, 200], &img);
+        let (width, height) = get_titlepic_dimensions(&titlepic)?;
+        let img = decode_doom_picture(&titlepic, &palette, width, height)?;
+        let color_img = ColorImage::from_rgba_unmultiplied([width, height], &img);
         self.titlepic_texture =
             Some(ctx.load_texture("titlepic", color_img, egui::TextureOptions::default()));
         Some(())
