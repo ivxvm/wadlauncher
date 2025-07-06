@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 use eframe::egui;
+use eframe::egui::ColorImage;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
@@ -46,6 +47,96 @@ impl Default for Config {
 
 struct App {
     config: Config,
+    titlepic_texture: Option<egui::TextureHandle>,
+    last_iwad_path: Option<String>,
+    last_wad_path: Option<String>,
+}
+
+fn load_playpal_lump(iwad_path: Option<&str>, wad_path: Option<&str>) -> Option<Vec<u8>> {
+    for path in [wad_path, iwad_path].into_iter().flatten() {
+        if let Ok(wad) = wad::load_wad_file(path) {
+            if let Some(data) = wad.by_id(b"PLAYPAL") {
+                return Some(data[0..768].to_vec());
+            }
+        }
+    }
+    None
+}
+
+fn load_titlepic_lump(iwad_path: Option<&str>, wad_path: Option<&str>) -> Option<Vec<u8>> {
+    for path in [wad_path, iwad_path].into_iter().flatten() {
+        if let Ok(wad) = wad::load_wad_file(path) {
+            if let Some(data) = wad.by_id(b"TITLEPIC") {
+                return Some(data.to_vec());
+            }
+        }
+    }
+    None
+}
+
+impl App {
+    fn load_titlepic(
+        &mut self,
+        ctx: &egui::Context,
+        iwad_path: Option<&str>,
+        wad_path: Option<&str>,
+    ) -> Option<()> {
+        self.titlepic_texture = None;
+        let palette = load_playpal_lump(iwad_path, wad_path)?;
+        let titlepic = load_titlepic_lump(iwad_path, wad_path)?;
+        let img = decode_doom_picture(&titlepic, &palette, 320, 200)?;
+        let color_img = ColorImage::from_rgba_unmultiplied([320, 200], &img);
+        self.titlepic_texture =
+            Some(ctx.load_texture("titlepic", color_img, egui::TextureOptions::default()));
+        Some(())
+    }
+}
+
+fn decode_doom_picture(
+    data: &[u8],
+    palette: &[u8],
+    width: usize,
+    height: usize,
+) -> Option<Vec<u8>> {
+    // Doom picture format: column-major, with posts
+    let mut out = vec![0u8; width * height * 4];
+    let mut col_offsets = vec![0u32; width];
+    if data.len() < width * 4 {
+        return None;
+    }
+    for i in 0..width {
+        col_offsets[i] = u32::from_le_bytes([
+            data[i * 4],
+            data[i * 4 + 1],
+            data[i * 4 + 2],
+            data[i * 4 + 3],
+        ]);
+    }
+    for x in 0..width {
+        let mut pos = col_offsets[x] as usize;
+        loop {
+            if pos >= data.len() {
+                break;
+            }
+            let y_start = data[pos] as usize;
+            if y_start == 255 {
+                break;
+            }
+            let n_pixels = data[pos + 1] as usize;
+            pos += 3; // skip y_start, n_pixels, unused
+            for y in y_start..(y_start + n_pixels) {
+                let pal_idx = data[pos] as usize;
+                let dst = (y * width + x) * 4;
+                out[dst + 0] = palette[pal_idx * 3 + 0];
+                out[dst + 1] = palette[pal_idx * 3 + 1];
+                out[dst + 2] = palette[pal_idx * 3 + 2];
+                out[dst + 3] = 16;
+                pos += 1;
+            }
+            pos += 1; // skip unused
+        }
+    }
+    Some(out)
 }
 
 fn main() {
@@ -56,7 +147,14 @@ fn main() {
             viewport: eframe::egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
             ..Default::default()
         },
-        Box::new(|_| Ok(Box::new(App { config }))),
+        Box::new(|_| {
+            Ok(Box::new(App {
+                config,
+                titlepic_texture: None,
+                last_iwad_path: None,
+                last_wad_path: None,
+            }))
+        }),
     )
     .unwrap();
 }
@@ -88,9 +186,38 @@ fn sanitize_tab_name_part(s: &str) -> String {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         let mut store_config = false;
-        let cfg = &mut self.config;
+        // Precompute values to avoid borrow conflicts
+        let (iwad_path, wad_path, need_titlepic, last_iwad_path, last_wad_path) = {
+            let cfg = &self.config;
+            let tab_config = &cfg.tabs[cfg.selected_tab];
+            let iwad_path = tab_config.iwad_path.clone();
+            let wad_path = tab_config.input_paths.get(0).cloned();
+            let mut need_titlepic = false;
+            if wad_path.is_some() || iwad_path.is_some() {
+                need_titlepic = self.last_iwad_path.as_deref() != iwad_path.as_deref()
+                    || self.last_wad_path.as_deref() != wad_path.as_deref()
+                    || self.titlepic_texture.is_none();
+            }
+            let last_iwad_path = iwad_path.clone();
+            let last_wad_path = wad_path.clone();
+            (
+                iwad_path,
+                wad_path,
+                need_titlepic,
+                last_iwad_path,
+                last_wad_path,
+            )
+        };
 
+        if need_titlepic {
+            self.load_titlepic(ctx, iwad_path.as_deref(), wad_path.as_deref());
+            self.last_iwad_path = last_iwad_path;
+            self.last_wad_path = last_wad_path;
+        }
+
+        let cfg = &mut self.config;
         let mut input_path_indexes_to_remove = Vec::new();
+        let mut iwad_to_load: Option<String> = None;
 
         egui::TopBottomPanel::top("tab_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -141,7 +268,6 @@ impl eframe::App for App {
                     }
                     if cfg.tabs.len() > 1 {
                         if ui.button("×").on_hover_text("Close tab").clicked() {
-                            println!("closing tab {}", i);
                             cfg.tabs.remove(i);
                             if cfg.selected_tab >= cfg.tabs.len() {
                                 cfg.selected_tab = cfg.tabs.len() - 1;
@@ -160,6 +286,14 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            if let Some(tex) = &self.titlepic_texture {
+                ui.painter().image(
+                    tex.id(),
+                    ui.max_rect(),
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+            }
             let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
 
             ui.horizontal(|ui| {
@@ -214,6 +348,7 @@ impl eframe::App for App {
                             .parent()
                             .map(|d| d.to_string_lossy().to_string());
                         store_config = true;
+                        iwad_to_load = Some(path);
                     }
                 }
             });
