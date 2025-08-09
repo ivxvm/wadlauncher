@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use arboard::Clipboard;
 use eframe::egui;
 use eframe::egui::ColorImage;
 use serde_derive::{Deserialize, Serialize};
@@ -51,6 +52,7 @@ impl Default for Config {
 
 struct App {
     config: Config,
+    clipboard: Clipboard,
     titlepic_texture: Option<egui::TextureHandle>,
     last_iwad_path: Option<String>,
     last_wad_path: Option<String>,
@@ -195,6 +197,7 @@ fn main() {
         Box::new(|_| {
             Ok(Box::new(App {
                 config,
+                clipboard: Clipboard::new().unwrap(),
                 titlepic_texture: None,
                 last_iwad_path: None,
                 last_wad_path: None,
@@ -229,7 +232,7 @@ fn sanitize_tab_name_part(s: &str) -> String {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         let mut store_config = false;
         // Persist window size on resize
         let win_size = ctx.available_rect().size();
@@ -452,15 +455,39 @@ impl eframe::App for App {
                 }
             });
 
+            // Build and render command line string to launch the game
+            let cmd = if let (Some(engine), Some(iwad)) = (
+                tab_config.engine_path.as_ref(),
+                tab_config.iwad_path.as_ref(),
+            ) {
+                let mut cmd = Command::new(engine);
+                cmd.args(&tab_config.input_paths).arg("-iwad").arg(iwad);
+                Some(cmd)
+            } else {
+                None
+            };
+
+            let cmd_str = cmd
+                .as_ref()
+                .map(|cmd| format!("{:?}", cmd))
+                .unwrap_or("<Incomplete command>".to_string());
+
+            ui.horizontal(|ui| {
+                ui.label("Command line:");
+                if ui.button("Copy").clicked() {
+                    self.clipboard.set_text(cmd_str.clone()).unwrap();
+                }
+            });
+
+            ui.group(|ui| {
+                ui.label(cmd_str.clone());
+            });
+
             if ui.button("Launch").clicked() {
-                let mut cmd = Command::new(tab_config.engine_path.as_ref().unwrap());
-
-                cmd.args(&tab_config.input_paths)
-                    .arg("-iwad")
-                    .arg(tab_config.iwad_path.as_ref().unwrap());
-
-                println!("Launching game:\n{:?}\n", cmd);
-                cmd.spawn().unwrap();
+                if let Some(mut cmd) = cmd {
+                    println!("Launching game:\n{:?}\n", cmd);
+                    cmd.spawn().unwrap();
+                }
             }
         });
 
