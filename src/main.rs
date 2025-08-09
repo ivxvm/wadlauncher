@@ -31,6 +31,8 @@ pub struct Config {
     pub last_engine_dir: Option<String>,
     pub last_iwad_dir: Option<String>,
     pub last_input_dir: Option<String>,
+    pub window_width: Option<f32>,
+    pub window_height: Option<f32>,
 }
 
 impl Default for Config {
@@ -41,6 +43,8 @@ impl Default for Config {
             last_engine_dir: None,
             last_iwad_dir: None,
             last_input_dir: None,
+            window_width: Some(640.0),
+            window_height: Some(480.0),
         }
     }
 }
@@ -180,10 +184,12 @@ impl App {
 
 fn main() {
     let config: Config = confy::load("wadlauncher", None).unwrap();
+    let width = config.window_width.unwrap_or(640.0);
+    let height = config.window_height.unwrap_or(480.0);
     eframe::run_native(
         "wadlauncher",
         eframe::NativeOptions {
-            viewport: eframe::egui::ViewportBuilder::default().with_inner_size([640.0, 480.0]),
+            viewport: eframe::egui::ViewportBuilder::default().with_inner_size([width, height]),
             ..Default::default()
         },
         Box::new(|_| {
@@ -223,8 +229,18 @@ fn sanitize_tab_name_part(s: &str) -> String {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let mut store_config = false;
+        // Persist window size on resize
+        let win_size = ctx.available_rect().size();
+        if self.config.window_width != Some(win_size.x)
+            || self.config.window_height != Some(win_size.y)
+        {
+            self.config.window_width = Some(win_size.x);
+            self.config.window_height = Some(win_size.y);
+            store_config = true;
+        }
+
         // Precompute values to avoid borrow conflicts
         let (iwad_path, wad_path, need_titlepic, last_iwad_path, last_wad_path) = {
             let cfg = &self.config;
