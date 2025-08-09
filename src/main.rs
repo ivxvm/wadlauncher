@@ -63,57 +63,36 @@ fn load_playpal_lump(iwad_path: Option<&str>, wad_path: Option<&str>) -> Option<
     None
 }
 
-fn load_titlepic_lump(iwad_path: Option<&str>, wad_path: Option<&str>) -> Option<Vec<u8>> {
+fn load_titlepic_lump(
+    iwad_path: Option<&str>,
+    wad_path: Option<&str>,
+) -> Option<(String, Vec<u8>)> {
+    const TITLE_LUMPS: [&str; 3] = ["TITLEPIC", "TITLE", "HTITLE"];
     for path in [wad_path, iwad_path].into_iter().flatten() {
         if let Ok(wad) = wad::load_wad_file(path) {
-            if let Some(data) = wad.by_id(b"TITLEPIC") {
-                return Some(data.to_vec());
+            for lump in TITLE_LUMPS {
+                let entry_id = wad::EntryId::from_str(lump).unwrap();
+                if let Some(data) = wad.by_id(entry_id) {
+                    return Some((lump.to_string(), data.to_vec()));
+                }
             }
         }
     }
     None
 }
 
-fn get_titlepic_dimensions(data: &[u8]) -> Option<(usize, usize)> {
-    if data.len() < 4 {
-        return None;
-    }
-
+fn get_titlepic_dimensions(data: &[u8]) -> (usize, usize) {
     let width = u16::from_le_bytes([data[0], data[1]]) as usize;
     let height = u16::from_le_bytes([data[2], data[3]]) as usize;
 
     if width == 0 || height == 0 || data.len() < 4 + width * 4 {
-        return None;
+        (320, 200)
     } else {
-        Some((width, height))
+        (width, height)
     }
 }
 
-impl App {
-    fn load_titlepic(
-        &mut self,
-        ctx: &egui::Context,
-        iwad_path: Option<&str>,
-        wad_path: Option<&str>,
-    ) -> Option<()> {
-        self.titlepic_texture = None;
-        let palette = load_playpal_lump(iwad_path, wad_path)?;
-        let titlepic = load_titlepic_lump(iwad_path, wad_path)?;
-        let (width, height) = get_titlepic_dimensions(&titlepic)?;
-        let img = decode_doom_picture(&titlepic, &palette, width, height)?;
-        let color_img = ColorImage::from_rgba_unmultiplied([width, height], &img);
-        self.titlepic_texture =
-            Some(ctx.load_texture("titlepic", color_img, egui::TextureOptions::default()));
-        Some(())
-    }
-}
-
-fn decode_doom_picture(
-    data: &[u8],
-    palette: &[u8],
-    width: usize,
-    height: usize,
-) -> Option<Vec<u8>> {
+fn decode_titlepic(data: &[u8], palette: &[u8], width: usize, height: usize) -> Option<Vec<u8>> {
     // Doom picture format: column-major, with posts
     let mut out = vec![0u8; width * height * 4];
     let mut col_offsets = vec![0u32; width];
@@ -153,6 +132,50 @@ fn decode_doom_picture(
         }
     }
     Some(out)
+}
+
+fn decode_htitle(data: &[u8], palette: &[u8]) -> Option<Vec<u8>> {
+    if data.len() != 320 * 200 {
+        return None;
+    }
+    let mut out = vec![0u8; 320 * 200 * 4];
+    for i in 0..(320 * 200) {
+        let pal_idx = data[i] as usize;
+        out[i * 4 + 0] = palette[pal_idx * 3 + 0];
+        out[i * 4 + 1] = palette[pal_idx * 3 + 1];
+        out[i * 4 + 2] = palette[pal_idx * 3 + 2];
+        out[i * 4 + 3] = 16;
+    }
+    Some(out)
+}
+
+impl App {
+    fn load_titlepic(
+        &mut self,
+        ctx: &egui::Context,
+        iwad_path: Option<&str>,
+        wad_path: Option<&str>,
+    ) -> Option<()> {
+        self.titlepic_texture = None;
+        let palette = load_playpal_lump(iwad_path, wad_path)?;
+        let (lump_name, titlepic) = load_titlepic_lump(iwad_path, wad_path)?;
+        let (width, height, img) = match lump_name.as_str() {
+            "TITLE" | "HTITLE" => {
+                let img = decode_htitle(&titlepic, &palette)
+                    .or_else(|| decode_titlepic(&titlepic, &palette, 320, 200))?;
+                (320, 200, img)
+            }
+            "TITLEPIC" | _ => {
+                let (width, height) = get_titlepic_dimensions(&titlepic);
+                let img = decode_titlepic(&titlepic, &palette, width, height)?;
+                (width, height, img)
+            }
+        };
+        let color_img = ColorImage::from_rgba_unmultiplied([width, height], &img);
+        self.titlepic_texture =
+            Some(ctx.load_texture("titlepic", color_img, egui::TextureOptions::default()));
+        Some(())
+    }
 }
 
 fn main() {
