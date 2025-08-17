@@ -100,6 +100,7 @@ fn compute_long_width(ui: &egui::Ui, long_titles: &[String]) -> f32 {
     }
     long_width += (long_titles.len() as f32) * 32.0; // close buttons and spacing
     long_width += 32.0; // new tab button
+    long_width += 80.0; // settings button width reserve
     long_width
 }
 
@@ -109,34 +110,91 @@ pub fn tab_bar_ui(cfg: &mut Config, ctx: &egui::Context, store_config: &mut bool
         let short_titles = build_short_titles(cfg);
         let long_titles_width = compute_long_width(ui, &long_titles);
         let use_short_titles = long_titles_width > ui.available_width();
+
+        // We'll reserve a small area on the right for the persistent Settings tab.
+        let settings_area_width = 100.0; // pixels reserved on the right for Settings
+        let left_area_width = (ui.available_width() - settings_area_width).max(0.0);
+
         ui.horizontal(|ui| {
-            for (i, _tab) in cfg.tabs.iter().enumerate() {
-                let tab_title = if use_short_titles {
-                    &short_titles[i]
-                } else {
-                    &long_titles[i]
-                };
-                let selected = i == cfg.selected_tab;
-                if ui.selectable_label(selected, tab_title).clicked() {
-                    cfg.selected_tab = i;
-                    *store_config = true;
-                }
-                if cfg.tabs.len() > 1 {
-                    if ui.button("×").on_hover_text("Close tab").clicked() {
-                        cfg.tabs.remove(i);
-                        if cfg.selected_tab >= cfg.tabs.len() {
-                            cfg.selected_tab = cfg.tabs.len() - 1;
+            // Left area: normal tabs + new tab button
+            ui.allocate_ui_with_layout(
+                egui::vec2(left_area_width, ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    for (i, _tab) in cfg.tabs.iter().enumerate() {
+                        let tab_title = if use_short_titles {
+                            &short_titles[i]
+                        } else {
+                            &long_titles[i]
+                        };
+                        let selected = i == cfg.selected_tab;
+                        if ui.selectable_label(selected, tab_title).clicked() {
+                            cfg.selected_tab = i;
+                            *store_config = true;
                         }
-                        *store_config = true;
-                        break;
+                        if cfg.tabs.len() > 1 {
+                            if ui.button("×").on_hover_text("Close tab").clicked() {
+                                // Preserve settings selection if it was selected (settings index == old_len)
+                                let prev_selected = cfg.selected_tab;
+                                let old_len = cfg.tabs.len();
+                                // Remove the tab
+                                cfg.tabs.remove(i);
+                                let new_len = cfg.tabs.len();
+
+                                let settings_index_before = old_len; // settings index was equal to number of tabs
+                                let was_settings_selected = prev_selected == settings_index_before;
+
+                                if was_settings_selected {
+                                    // Keep Settings selected; its index is now new_len
+                                    cfg.selected_tab = new_len;
+                                } else {
+                                    // Adjust selected index based on relationship to the removed tab
+                                    if prev_selected == i {
+                                        // The currently selected tab was closed.
+                                        // Prefer the tab that shifted into this index; if the closed tab was the last,
+                                        // select the new last tab.
+                                        if i >= new_len {
+                                            cfg.selected_tab = new_len.saturating_sub(1);
+                                        } else {
+                                            cfg.selected_tab = i;
+                                        }
+                                    } else if i < prev_selected {
+                                        // A tab before the selected one was removed, shift selection left by one.
+                                        cfg.selected_tab = prev_selected.saturating_sub(1);
+                                    } else {
+                                        // A tab after the selected one was removed, selection unchanged.
+                                        cfg.selected_tab = prev_selected;
+                                    }
+                                }
+
+                                *store_config = true;
+                                break;
+                            }
+                        }
                     }
-                }
-            }
-            if ui.button("+").on_hover_text("New tab").clicked() {
-                cfg.tabs.push(TabConfig::default());
-                cfg.selected_tab = cfg.tabs.len() - 1;
-                *store_config = true;
-            }
+                    if ui.button("+").on_hover_text("New tab").clicked() {
+                        cfg.tabs.push(TabConfig::default());
+                        cfg.selected_tab = cfg.tabs.len().saturating_sub(1);
+                        *store_config = true;
+                    }
+                },
+            );
+
+            ui.add_space(ui.available_width() - settings_area_width);
+
+            // Right area: Settings button (persistent, no close button)
+            ui.allocate_ui_with_layout(
+                egui::vec2(settings_area_width, ui.spacing().interact_size.y),
+                egui::Layout::right_to_left(egui::Align::Max),
+                |ui| {
+                    let settings_tab_index = cfg.tabs.len();
+                    let settings_selected = cfg.selected_tab == settings_tab_index;
+                    if ui.selectable_label(settings_selected, "SETTINGS").clicked() {
+                        cfg.selected_tab = settings_tab_index;
+                        *store_config = true;
+                    }
+                },
+            );
         });
     });
 }

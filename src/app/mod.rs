@@ -1,4 +1,5 @@
-mod central_panel_ui;
+mod game_profile_ui;
+mod settings_ui;
 mod tab_bar_ui;
 
 use arboard::Clipboard;
@@ -62,19 +63,21 @@ impl App {
     /// Checks if TITLEPIC needs to be reloaded and reloads if needed.
     fn reload_titlepic_if_needed(&mut self, ctx: &egui::Context) {
         let cfg = &self.config;
-        let tab_config = &cfg.tabs[cfg.selected_tab];
-        let iwad_path = tab_config.iwad_path.clone();
-        let wad_path = tab_config.input_paths.get(0).cloned();
-        let mut need_titlepic = false;
-        if wad_path.is_some() || iwad_path.is_some() {
-            need_titlepic = self.last_iwad_path.as_deref() != iwad_path.as_deref()
-                || self.last_wad_path.as_deref() != wad_path.as_deref()
-                || self.titlepic_texture.is_none();
-        }
-        if need_titlepic {
-            self.load_titlepic(ctx, iwad_path.as_deref(), wad_path.as_deref());
-            self.last_iwad_path = iwad_path;
-            self.last_wad_path = wad_path;
+        if cfg.selected_tab != cfg.tabs.len() {
+            let tab_config = &cfg.tabs[cfg.selected_tab];
+            let iwad_path = tab_config.iwad_path.clone();
+            let wad_path = tab_config.input_paths.get(0).cloned();
+            let mut need_titlepic = false;
+            if wad_path.is_some() || iwad_path.is_some() {
+                need_titlepic = self.last_iwad_path.as_deref() != iwad_path.as_deref()
+                    || self.last_wad_path.as_deref() != wad_path.as_deref()
+                    || self.titlepic_texture.is_none();
+            }
+            if need_titlepic {
+                self.load_titlepic(ctx, iwad_path.as_deref(), wad_path.as_deref());
+                self.last_iwad_path = iwad_path;
+                self.last_wad_path = wad_path;
+            }
         }
     }
 }
@@ -87,21 +90,27 @@ impl eframe::App for App {
         let mut iwad_to_load: Option<String> = None;
         tab_bar_ui::tab_bar_ui(&mut self.config, ctx, &mut should_store_config);
         let cfg = &mut self.config;
-        central_panel_ui::central_panel_ui(
-            &self.titlepic_texture,
-            &mut self.clipboard,
-            ctx,
-            cfg,
-            &mut input_path_indexes_to_remove,
-            &mut iwad_to_load,
-            &mut should_store_config,
-        );
-        let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
-        input_path_indexes_to_remove.sort();
 
-        for index in input_path_indexes_to_remove.iter().rev() {
-            tab_config.input_paths.remove(*index);
-            should_store_config = true;
+        if cfg.selected_tab == cfg.tabs.len() {
+            settings_ui::settings_ui(ctx, cfg, &mut should_store_config);
+        } else {
+            game_profile_ui::game_profile_ui(
+                &self.titlepic_texture,
+                &mut self.clipboard,
+                ctx,
+                cfg,
+                &mut input_path_indexes_to_remove,
+                &mut iwad_to_load,
+                &mut should_store_config,
+            );
+
+            let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
+            input_path_indexes_to_remove.sort();
+
+            for index in input_path_indexes_to_remove.iter().rev() {
+                tab_config.input_paths.remove(*index);
+                should_store_config = true;
+            }
         }
 
         if should_store_config {

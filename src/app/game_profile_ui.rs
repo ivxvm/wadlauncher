@@ -176,7 +176,7 @@ fn command_line_ui(ui: &mut egui::Ui, clipboard: &mut Clipboard, cmd: &Option<Co
     });
 }
 
-pub fn central_panel_ui(
+pub fn game_profile_ui(
     titlepic_texture: &Option<egui::TextureHandle>,
     clipboard: &mut Clipboard,
     ctx: &egui::Context,
