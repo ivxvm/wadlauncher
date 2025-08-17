@@ -278,9 +278,12 @@ impl eframe::App for App {
         let mut iwad_to_load: Option<String> = None;
 
         egui::TopBottomPanel::top("tab_bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                for (i, tab) in cfg.tabs.iter().enumerate() {
-                    let tab_title = if tab.engine_path.is_none()
+            // First, compute tab titles in both forms
+            let long_titles: Vec<String> = cfg
+                .tabs
+                .iter()
+                .map(|tab| {
+                    if tab.engine_path.is_none()
                         && tab.iwad_path.is_none()
                         && tab.input_paths.is_empty()
                     {
@@ -318,6 +321,47 @@ impl eframe::App for App {
                             ));
                         }
                         title
+                    }
+                })
+                .collect();
+            let short_titles: Vec<String> = cfg
+                .tabs
+                .iter()
+                .map(|tab| {
+                    tab.input_paths
+                        .get(0)
+                        .map(|wad| {
+                            sanitize_tab_name_part(
+                                &std::path::Path::new(wad)
+                                    .file_stem()
+                                    .and_then(|s| s.to_str())
+                                    .unwrap_or(wad),
+                            )
+                        })
+                        .unwrap_or_else(|| "New Tab".to_owned())
+                })
+                .collect();
+
+            // Measure long form tab bar width
+            let font_id = egui::TextStyle::Button.resolve(ui.style());
+            let mut long_width = 0.0;
+            for title in &long_titles {
+                let galley = ui.fonts(|fonts| {
+                    fonts.layout_no_wrap(title.clone(), font_id.clone(), egui::Color32::WHITE)
+                });
+                long_width += galley.size().x + 16.0; // padding for button
+            }
+            long_width += (cfg.tabs.len() as f32) * 32.0; // close buttons and spacing
+            long_width += 32.0; // new tab button
+            let available_width = ui.available_width();
+            let use_short = long_width > available_width;
+
+            ui.horizontal(|ui| {
+                for (i, tab) in cfg.tabs.iter().enumerate() {
+                    let tab_title = if use_short {
+                        &short_titles[i]
+                    } else {
+                        &long_titles[i]
                     };
                     let selected = i == cfg.selected_tab;
                     if ui.selectable_label(selected, tab_title).clicked() {
