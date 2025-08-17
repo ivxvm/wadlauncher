@@ -425,12 +425,26 @@ impl eframe::App for App {
             });
 
             ui.horizontal(|ui| {
-                ui.label("IWAD:");
-                ui.monospace(
-                    tab_config
-                        .iwad_path
-                        .as_ref()
-                        .unwrap_or(&"<Empty>".to_owned()),
+                let prefix_label_response = ui.label("IWAD:");
+                let prefix_label_width = prefix_label_response.rect.width();
+                let button_width = 65.0;
+                let overflow = 30.0;
+                let max_path_label_width =
+                    ui.available_width() - (prefix_label_width + button_width) + overflow;
+                ui.allocate_ui_with_layout(
+                    egui::vec2(max_path_label_width.max(50.0), ui.spacing().interact_size.y),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.add(
+                            egui::Label::new(
+                                egui::RichText::new(
+                                    tab_config.iwad_path.as_deref().unwrap_or("<Empty>"),
+                                )
+                                .monospace(),
+                            )
+                            .truncate(),
+                        )
+                    },
                 );
                 if ui.button("Configure").clicked() {
                     let start_dir = tab_config

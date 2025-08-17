@@ -4,7 +4,7 @@ version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-eframe = "0.31.1"
+eframe = "0.32.1"
 confy = "1.0.0"
 serde = "^1.0"
 serde_derive = "^1.0"
