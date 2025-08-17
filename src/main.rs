@@ -2,7 +2,6 @@
 
 mod app;
 mod config;
-mod ui_helpers;
 mod wad;
 
 use app::App;
