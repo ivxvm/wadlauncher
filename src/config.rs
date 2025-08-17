@@ -17,6 +17,19 @@ impl Default for TabConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TitleMode {
+    Adaptive,
+    Short,
+    Long,
+}
+
+impl Default for TitleMode {
+    fn default() -> Self {
+        TitleMode::Adaptive
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub tabs: Vec<TabConfig>,
@@ -26,6 +39,8 @@ pub struct Config {
     pub last_input_dir: Option<String>,
     pub window_width: Option<f32>,
     pub window_height: Option<f32>,
+    #[serde(default)]
+    pub title_mode: TitleMode,
 }
 
 impl Default for Config {
@@ -38,6 +53,7 @@ impl Default for Config {
             last_input_dir: None,
             window_width: Some(640.0),
             window_height: Some(480.0),
+            title_mode: TitleMode::default(),
         }
     }
 }

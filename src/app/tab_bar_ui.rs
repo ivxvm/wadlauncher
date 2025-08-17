@@ -109,7 +109,11 @@ pub fn tab_bar_ui(cfg: &mut Config, ctx: &egui::Context, store_config: &mut bool
         let long_titles = build_long_titles(cfg);
         let short_titles = build_short_titles(cfg);
         let long_titles_width = compute_long_width(ui, &long_titles);
-        let use_short_titles = long_titles_width > ui.available_width();
+        let use_short_titles = match cfg.title_mode {
+            crate::config::TitleMode::Adaptive => long_titles_width > ui.available_width(),
+            crate::config::TitleMode::Short => true,
+            crate::config::TitleMode::Long => false,
+        };
 
         // We'll reserve a small area on the right for the persistent Settings tab.
         let settings_area_width = 100.0; // pixels reserved on the right for Settings
