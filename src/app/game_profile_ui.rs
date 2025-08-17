@@ -191,7 +191,9 @@ pub fn game_profile_ui(
         iwad_config_ui(ui, cfg, iwad_to_load, store_config);
         input_files_config_ui(ui, cfg, input_path_indexes_to_remove, store_config);
         let cmd = build_cmd(cfg);
-        command_line_ui(ui, clipboard, &cmd);
+        if cfg.show_command_line {
+            command_line_ui(ui, clipboard, &cmd);
+        }
         if ui.button("Launch").clicked() {
             if let Some(mut cmd) = cmd {
                 println!("Launching game:\n{:?}\n", cmd);

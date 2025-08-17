@@ -41,6 +41,8 @@ pub struct Config {
     pub window_height: Option<f32>,
     #[serde(default)]
     pub title_mode: TitleMode,
+    #[serde(default)]
+    pub show_command_line: bool,
 }
 
 impl Default for Config {
@@ -54,6 +56,7 @@ impl Default for Config {
             window_width: Some(640.0),
             window_height: Some(480.0),
             title_mode: TitleMode::default(),
+            show_command_line: false,
         }
     }
 }
