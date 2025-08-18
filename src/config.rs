@@ -43,6 +43,8 @@ pub struct Config {
     pub title_mode: TitleMode,
     #[serde(default)]
     pub show_command_line: bool,
+    #[serde(default)]
+    pub show_iwad_in_long_titles: bool,
 }
 
 impl Default for Config {
@@ -57,6 +59,7 @@ impl Default for Config {
             window_height: Some(480.0),
             title_mode: TitleMode::default(),
             show_command_line: false,
+            show_iwad_in_long_titles: false,
         }
     }
 }

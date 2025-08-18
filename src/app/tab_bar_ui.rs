@@ -33,38 +33,61 @@ fn build_long_titles(cfg: &Config) -> Vec<String> {
             if tab.engine_path.is_none() && tab.iwad_path.is_none() && tab.input_paths.is_empty() {
                 "New Tab".to_owned()
             } else {
-                let mut title = String::new();
-                if let Some(engine) = &tab.engine_path {
-                    title.push_str(&sanitize_tab_name_part(
-                        &Path::new(engine)
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or(engine),
-                    ));
-                }
-                if let Some(iwad) = &tab.iwad_path {
-                    if !title.is_empty() {
-                        title.push_str(" : ");
-                    }
-                    title.push_str(&sanitize_tab_name_part(
-                        &Path::new(iwad)
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or(iwad),
-                    ));
-                }
-                if let Some(wad) = tab.input_paths.get(0) {
-                    if !title.is_empty() {
-                        title.push_str(" : ");
-                    }
-                    title.push_str(&sanitize_tab_name_part(
+                // Prefer showing the first input (wad) as the primary title, with engine/iwad in parentheses.
+                let wad_name = tab.input_paths.get(0).map(|wad| {
+                    sanitize_tab_name_part(
                         &Path::new(wad)
                             .file_stem()
                             .and_then(|s| s.to_str())
                             .unwrap_or(wad),
-                    ));
+                    )
+                });
+                let engine_name = tab.engine_path.as_ref().map(|engine| {
+                    sanitize_tab_name_part(
+                        &Path::new(engine)
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or(engine),
+                    )
+                });
+                let iwad_name = tab.iwad_path.as_ref().map(|iwad| {
+                    sanitize_tab_name_part(
+                        &Path::new(iwad)
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or(iwad),
+                    )
+                });
+
+                if let Some(wad) = wad_name {
+                    let mut extras: Vec<String> = Vec::new();
+                    if let Some(engine) = engine_name {
+                        extras.push(engine);
+                    }
+                    if cfg.show_iwad_in_long_titles {
+                        if let Some(iwad) = iwad_name {
+                            extras.push(iwad);
+                        }
+                    }
+                    if extras.is_empty() {
+                        wad
+                    } else {
+                        format!("{} [{}]", wad, extras.join(", "))
+                    }
+                } else {
+                    // Fallback: if there's no wad, prefer iwad as primary and show engine in parentheses.
+                    if let Some(iwad) = iwad_name {
+                        if let Some(engine) = engine_name {
+                            format!("{} [{}]", iwad, engine)
+                        } else {
+                            iwad
+                        }
+                    } else if let Some(engine) = engine_name {
+                        engine
+                    } else {
+                        "New Tab".to_owned()
+                    }
                 }
-                title
             }
         })
         .collect()
