@@ -19,13 +19,26 @@ fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureH
 fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut bool) {
     let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
-        ui.label("Game engine:");
-        ui.monospace(
-            tab_config
-                .engine_path
-                .as_ref()
-                .unwrap_or(&"<Empty>".to_owned()),
+        let prefix_label_response = ui.label("Game engine:");
+        let prefix_label_width = prefix_label_response.rect.width();
+        let button_width = 65.0;
+        let overflow = 30.0;
+        let max_path_label_width =
+            ui.available_width() - (prefix_label_width + button_width) + overflow;
+        ui.allocate_ui_with_layout(
+            egui::vec2(max_path_label_width.max(50.0), ui.spacing().interact_size.y),
+            egui::Layout::left_to_right(egui::Align::Center),
+            |ui| {
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(tab_config.engine_path.as_deref().unwrap_or("<Empty>"))
+                            .monospace(),
+                    )
+                    .truncate(),
+                )
+            },
         );
+
         if ui.button("Configure").clicked() {
             let start_dir = tab_config
                 .engine_path
