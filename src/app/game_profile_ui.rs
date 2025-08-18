@@ -5,6 +5,29 @@ use std::path::Path;
 use std::process::Command;
 use tinyfiledialogs as tfd;
 
+const MIN_LABEL_WIDTH: f32 = 50.0;
+const CONFIGURE_BUTTON_WIDTH: f32 = 65.0;
+const REMOVE_BUTTON_WIDTH: f32 = 65.0;
+
+fn allocate_truncated_label_ui<F, R>(
+    ui: &mut egui::Ui,
+    right_offset: f32,
+    add_contents: F,
+) -> egui::InnerResponse<R>
+where
+    F: FnOnce(&mut egui::Ui) -> R,
+{
+    let max_label_width = ui.available_width() - right_offset;
+    ui.allocate_ui_with_layout(
+        egui::vec2(
+            max_label_width.max(MIN_LABEL_WIDTH),
+            ui.spacing().interact_size.y,
+        ),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add_contents,
+    )
+}
+
 fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureHandle>) {
     if let Some(tex) = titlepic_texture {
         ui.painter().image(
@@ -19,26 +42,16 @@ fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureH
 fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut bool) {
     let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
-        let prefix_label_response = ui.label("Game engine:");
-        let prefix_label_width = prefix_label_response.rect.width();
-        let button_width = 65.0;
-        let overflow = 30.0;
-        let max_path_label_width =
-            ui.available_width() - (prefix_label_width + button_width) + overflow;
-        ui.allocate_ui_with_layout(
-            egui::vec2(max_path_label_width.max(50.0), ui.spacing().interact_size.y),
-            egui::Layout::left_to_right(egui::Align::Center),
-            |ui| {
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(tab_config.engine_path.as_deref().unwrap_or("<Empty>"))
-                            .monospace(),
-                    )
-                    .truncate(),
+        ui.label("Game engine:");
+        allocate_truncated_label_ui(ui, CONFIGURE_BUTTON_WIDTH, |ui| {
+            ui.add(
+                egui::Label::new(
+                    egui::RichText::new(tab_config.engine_path.as_deref().unwrap_or("<Empty>"))
+                        .monospace(),
                 )
-            },
-        );
-
+                .truncate(),
+            )
+        });
         if ui.button("Configure").clicked() {
             let start_dir = tab_config
                 .engine_path
@@ -66,25 +79,16 @@ fn iwad_config_ui(
 ) {
     let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
-        let prefix_label_response = ui.label("IWAD:");
-        let prefix_label_width = prefix_label_response.rect.width();
-        let button_width = 65.0;
-        let overflow = 30.0;
-        let max_path_label_width =
-            ui.available_width() - (prefix_label_width + button_width) + overflow;
-        ui.allocate_ui_with_layout(
-            egui::vec2(max_path_label_width.max(50.0), ui.spacing().interact_size.y),
-            egui::Layout::left_to_right(egui::Align::Center),
-            |ui| {
-                ui.add(
-                    egui::Label::new(
-                        egui::RichText::new(tab_config.iwad_path.as_deref().unwrap_or("<Empty>"))
-                            .monospace(),
-                    )
-                    .truncate(),
+        ui.label("IWAD:");
+        allocate_truncated_label_ui(ui, CONFIGURE_BUTTON_WIDTH, |ui| {
+            ui.add(
+                egui::Label::new(
+                    egui::RichText::new(tab_config.iwad_path.as_deref().unwrap_or("<Empty>"))
+                        .monospace(),
                 )
-            },
-        );
+                .truncate(),
+            )
+        });
         if ui.button("Configure").clicked() {
             let start_dir = tab_config
                 .iwad_path
@@ -150,20 +154,11 @@ fn input_files_config_ui(
         }
         for (index, path) in tab_config.input_paths.iter().enumerate() {
             ui.horizontal(|ui| {
-                // Reserve space for the path label and the Remove button
-                let button_width = 65.0;
-                let overflow: f32 = 20.0;
-                let max_label_width = ui.available_width() - button_width + overflow;
-                ui.allocate_ui_with_layout(
-                    egui::vec2(max_label_width.max(50.0), ui.spacing().interact_size.y),
-                    egui::Layout::left_to_right(egui::Align::Center),
-                    |ui| {
-                        ui.add(
-                            egui::Label::new(egui::RichText::new(path.clone()).monospace())
-                                .truncate(),
-                        );
-                    },
-                );
+                allocate_truncated_label_ui(ui, REMOVE_BUTTON_WIDTH, |ui| {
+                    ui.add(
+                        egui::Label::new(egui::RichText::new(path.clone()).monospace()).truncate(),
+                    );
+                });
 
                 if ui.button("Remove").clicked() {
                     input_path_indexes_to_remove.push(index);
