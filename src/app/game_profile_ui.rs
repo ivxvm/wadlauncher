@@ -150,7 +150,21 @@ fn input_files_config_ui(
         }
         for (index, path) in tab_config.input_paths.iter().enumerate() {
             ui.horizontal(|ui| {
-                ui.label(path.clone());
+                // Reserve space for the path label and the Remove button
+                let button_width = 65.0;
+                let overflow: f32 = 20.0;
+                let max_label_width = ui.available_width() - button_width + overflow;
+                ui.allocate_ui_with_layout(
+                    egui::vec2(max_label_width.max(50.0), ui.spacing().interact_size.y),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        ui.add(
+                            egui::Label::new(egui::RichText::new(path.clone()).monospace())
+                                .truncate(),
+                        );
+                    },
+                );
+
                 if ui.button("Remove").clicked() {
                     input_path_indexes_to_remove.push(index);
                 }
