@@ -178,7 +178,10 @@ fn build_cmd(cfg: &Config) -> Option<Command> {
         tab_config.iwad_path.as_ref(),
     ) {
         let mut cmd = Command::new(engine);
-        cmd.args(&tab_config.input_paths).arg("-iwad").arg(iwad);
+        cmd.arg("-iwad")
+            .arg(iwad)
+            .arg("-file")
+            .args(&tab_config.input_paths);
         Some(cmd)
     } else {
         None
