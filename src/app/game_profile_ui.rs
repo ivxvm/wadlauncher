@@ -123,14 +123,17 @@ fn input_files_config_ui(
     ui.horizontal(|ui| {
         ui.label("Input files:");
         if ui.button("Add").clicked() {
-            let start_dir = if let Some(last) = tab_config.input_paths.last() {
-                Path::new(last)
-                    .parent()
-                    .map(|d| d.to_str().unwrap_or("."))
-                    .unwrap_or(".")
-            } else {
-                cfg.last_input_dir.as_deref().unwrap_or(".")
-            };
+            let start_dir = tab_config
+                .last_input_dir
+                .as_deref()
+                .or_else(|| {
+                    tab_config
+                        .input_paths
+                        .last()
+                        .map(|last| Path::new(last).parent().map(|d| d.to_str().unwrap_or(".")))
+                        .flatten()
+                })
+                .unwrap_or(".");
             let path = tfd::open_file_dialog(
                 "Add Input File",
                 start_dir,
@@ -141,7 +144,7 @@ fn input_files_config_ui(
             );
             if let Some(path) = path {
                 tab_config.input_paths.push(path.clone());
-                cfg.last_input_dir = Path::new(&path)
+                tab_config.last_input_dir = Path::new(&path)
                     .parent()
                     .map(|d| d.to_string_lossy().to_string());
                 *store_config = true;
