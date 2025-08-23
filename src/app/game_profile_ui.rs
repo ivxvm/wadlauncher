@@ -6,8 +6,7 @@ use std::process::Command;
 use tinyfiledialogs as tfd;
 
 const MIN_LABEL_WIDTH: f32 = 50.0;
-const CONFIGURE_BUTTON_WIDTH: f32 = 65.0;
-const REMOVE_BUTTON_WIDTH: f32 = 65.0;
+const CONFIGURE_BUTTON_WIDTH: f32 = 16.0;
 
 fn allocate_truncated_label_ui<F, R>(
     ui: &mut egui::Ui,
@@ -52,7 +51,13 @@ fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut
                 .truncate(),
             )
         });
-        if ui.button("Configure").clicked() {
+        if ui
+            .add_sized(
+                egui::vec2(CONFIGURE_BUTTON_WIDTH, ui.spacing().interact_size.y),
+                egui::Button::new("..."),
+            )
+            .clicked()
+        {
             let start_dir = tab_config
                 .engine_path
                 .as_ref()
@@ -89,7 +94,13 @@ fn iwad_config_ui(
                 .truncate(),
             )
         });
-        if ui.button("Configure").clicked() {
+        if ui
+            .add_sized(
+                egui::vec2(CONFIGURE_BUTTON_WIDTH, ui.spacing().interact_size.y),
+                egui::Button::new("..."),
+            )
+            .clicked()
+        {
             let start_dir = tab_config
                 .iwad_path
                 .as_ref()
@@ -155,17 +166,70 @@ fn input_files_config_ui(
         if tab_config.input_paths.is_empty() {
             ui.label("<Empty>");
         }
-        for (index, path) in tab_config.input_paths.iter().enumerate() {
+        let initial_len = tab_config.input_paths.len();
+        for index in 0..initial_len {
+            // Clone the path for display so we don't hold an immutable borrow while mutating the vec.
+            let path = tab_config.input_paths[index].clone();
             ui.horizontal(|ui| {
-                allocate_truncated_label_ui(ui, REMOVE_BUTTON_WIDTH, |ui| {
-                    ui.add(
-                        egui::Label::new(egui::RichText::new(path.clone()).monospace()).truncate(),
-                    );
-                });
+                // Move up button (disabled for first item)
+                if ui
+                    .add_enabled(index > 0, egui::Button::new("/\\"))
+                    .clicked()
+                {
+                    tab_config.input_paths.swap(index, index - 1);
+                    *store_config = true;
+                }
 
-                if ui.button("Remove").clicked() {
+                // Move down button (disabled for last item)
+                let last_idx = tab_config.input_paths.len().saturating_sub(1);
+                if ui
+                    .add_enabled(index < last_idx, egui::Button::new("\\/"))
+                    .clicked()
+                {
+                    tab_config.input_paths.swap(index, index + 1);
+                    *store_config = true;
+                }
+
+                // Replace file button: open dialog in the same folder as this input file
+                if ui
+                    .add_sized(
+                        egui::vec2(CONFIGURE_BUTTON_WIDTH, ui.spacing().interact_size.y),
+                        egui::Button::new("..."),
+                    )
+                    .clicked()
+                {
+                    let start_dir = Path::new(&path)
+                        .parent()
+                        .and_then(|d| d.to_str())
+                        .unwrap_or(".");
+                    let sel = tfd::open_file_dialog(
+                        "Replace Input File",
+                        start_dir,
+                        Some((
+                            &["*.WAD", "*.wad", "*.deh", "*.pk3"],
+                            "Supported files (*.WAD, *.wad, *.deh, *.pk3)",
+                        )),
+                    );
+                    if let Some(new_path) = sel {
+                        tab_config.input_paths[index] = new_path.clone();
+                        tab_config.last_input_dir = Path::new(&new_path)
+                            .parent()
+                            .map(|d| d.to_string_lossy().to_string());
+                        *store_config = true;
+                    }
+                }
+
+                if ui
+                    .add_sized(
+                        egui::vec2(CONFIGURE_BUTTON_WIDTH + 1.0, ui.spacing().interact_size.y),
+                        egui::Button::new("×"),
+                    )
+                    .clicked()
+                {
                     input_path_indexes_to_remove.push(index);
                 }
+
+                ui.add(egui::Label::new(egui::RichText::new(path.clone()).monospace()).truncate());
             });
         }
     });
