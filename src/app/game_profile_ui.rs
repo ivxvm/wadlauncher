@@ -8,6 +8,55 @@ use tinyfiledialogs as tfd;
 const MIN_LABEL_WIDTH: f32 = 50.0;
 const CONFIGURE_BUTTON_WIDTH: f32 = 16.0;
 
+// Input path label color parameters (HSV). Hue is generated per-path from a seeded PRNG,
+// saturation and value are fixed constants.
+const PATH_COLOR_SAT: f32 = 0.5; // 0.0..1.0
+const PATH_COLOR_VAL: f32 = 0.6; // 0.0..1.0
+
+fn hsv_to_rgb_u8(h_deg: f32, s: f32, v: f32) -> (u8, u8, u8) {
+    let h = (h_deg % 360.0 + 360.0) % 360.0;
+    let c = v * s;
+    let x = c * (1.0 - (((h / 60.0) % 2.0) - 1.0).abs());
+    let m = v - c;
+    let (r1, g1, b1) = if h < 60.0 {
+        (c, x, 0.0)
+    } else if h < 120.0 {
+        (x, c, 0.0)
+    } else if h < 180.0 {
+        (0.0, c, x)
+    } else if h < 240.0 {
+        (0.0, x, c)
+    } else if h < 300.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    let r = ((r1 + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    let g = ((g1 + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    let b = ((b1 + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    (r, g, b)
+}
+
+fn color_for_path(path: &str) -> egui::Color32 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    // Stable-ish hash of the path string
+    let mut hasher = DefaultHasher::new();
+    path.hash(&mut hasher);
+    let seed = hasher.finish();
+
+    // Small LCG to produce a pseudo-random hue from the seed
+    let mut x = seed.wrapping_add(0x9E3779B97F4A7C15);
+    x = x
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    let hue = (x % 360) as f32;
+
+    let (r, g, b) = hsv_to_rgb_u8(hue, PATH_COLOR_SAT, PATH_COLOR_VAL);
+    egui::Color32::from_rgb(r, g, b)
+}
+
 fn allocate_truncated_label_ui<F, R>(
     ui: &mut egui::Ui,
     right_offset: f32,
@@ -229,7 +278,14 @@ fn input_files_config_ui(
                     input_path_indexes_to_remove.push(index);
                 }
 
-                ui.add(egui::Label::new(egui::RichText::new(path.clone()).monospace()).truncate());
+                ui.add(
+                    egui::Label::new(
+                        egui::RichText::new(path.clone())
+                            .monospace()
+                            .color(color_for_path(&path)),
+                    )
+                    .truncate(),
+                );
             });
         }
     });
