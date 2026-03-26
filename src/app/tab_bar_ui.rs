@@ -1,5 +1,6 @@
 use crate::config::{Config, TabConfig};
 use eframe::egui;
+use egui_dnd::dnd;
 use std::path::Path;
 
 fn sanitize_tab_name_part(s: &str) -> String {
@@ -116,7 +117,7 @@ fn compute_long_width(ui: &egui::Ui, long_titles: &[String]) -> f32 {
     let font_id = egui::TextStyle::Button.resolve(ui.style());
     let mut long_width = 0.0;
     for title in long_titles {
-        let galley = ui.fonts(|fonts| {
+        let galley = ui.fonts_mut(|fonts| {
             fonts.layout_no_wrap(title.clone(), font_id.clone(), egui::Color32::WHITE)
         });
         long_width += galley.size().x + 16.0; // padding for button
@@ -127,8 +128,8 @@ fn compute_long_width(ui: &egui::Ui, long_titles: &[String]) -> f32 {
     long_width
 }
 
-pub fn tab_bar_ui(cfg: &mut Config, ctx: &egui::Context, store_config: &mut bool) {
-    egui::TopBottomPanel::top("tab_bar").show(ctx, |ui| {
+pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) {
+    egui::Panel::top("tab_bar").show_inside(ui, |ui| {
         let long_titles = build_long_titles(cfg);
         let short_titles = build_short_titles(cfg);
         let long_titles_width = compute_long_width(ui, &long_titles);
@@ -148,60 +149,42 @@ pub fn tab_bar_ui(cfg: &mut Config, ctx: &egui::Context, store_config: &mut bool
                 egui::vec2(left_area_width, ui.spacing().interact_size.y),
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
-                    for (i, _tab) in cfg.tabs.iter().enumerate() {
+                    let tabs_count = cfg.tabs.len();
+                    let mut closed_tab_index: Option<usize> = None;
+
+                    dnd(ui, "tabs_dnd").show_vec(&mut cfg.tabs, |ui, item, handle, state| {
                         let tab_title = if use_short_titles {
-                            &short_titles[i]
+                            &short_titles[state.index]
                         } else {
-                            &long_titles[i]
+                            &long_titles[state.index]
                         };
-                        let selected = i == cfg.selected_tab;
-                        if ui.selectable_label(selected, tab_title).clicked() {
-                            cfg.selected_tab = i;
-                            *store_config = true;
-                        }
-                        if cfg.tabs.len() > 1 {
-                            if ui.button("×").on_hover_text("Close tab").clicked() {
-                                // Preserve settings selection if it was selected (settings index == old_len)
-                                let prev_selected = cfg.selected_tab;
-                                let old_len = cfg.tabs.len();
-                                // Remove the tab
-                                cfg.tabs.remove(i);
-                                let new_len = cfg.tabs.len();
-
-                                let settings_index_before = old_len; // settings index was equal to number of tabs
-                                let was_settings_selected = prev_selected == settings_index_before;
-
-                                if was_settings_selected {
-                                    // Keep Settings selected; its index is now new_len
-                                    cfg.selected_tab = new_len;
-                                } else {
-                                    // Adjust selected index based on relationship to the removed tab
-                                    if prev_selected == i {
-                                        // The currently selected tab was closed.
-                                        // Prefer the tab that shifted into this index; if the closed tab was the last,
-                                        // select the new last tab.
-                                        if i >= new_len {
-                                            cfg.selected_tab = new_len.saturating_sub(1);
-                                        } else {
-                                            cfg.selected_tab = i;
-                                        }
-                                    } else if i < prev_selected {
-                                        // A tab before the selected one was removed, shift selection left by one.
-                                        cfg.selected_tab = prev_selected.saturating_sub(1);
-                                    } else {
-                                        // A tab after the selected one was removed, selection unchanged.
-                                        cfg.selected_tab = prev_selected;
-                                    }
-                                }
-
+                        let is_selected = cfg.selected_tab == Some(item.id);
+                        handle.show_drag_cursor_on_hover(false).ui(ui, |ui| {
+                            if ui.selectable_label(is_selected, tab_title).clicked() {
+                                cfg.selected_tab = Some(item.id);
                                 *store_config = true;
-                                break;
                             }
+                            if tabs_count > 1 {
+                                if ui.button("×").on_hover_text("Close tab").clicked() {
+                                    closed_tab_index = Some(state.index);
+                                }
+                            }
+                        });
+                    });
+
+                    if let Some(index) = closed_tab_index {
+                        if index < tabs_count - 1 {
+                            cfg.selected_tab = cfg.tabs.get(index).map(|t| t.id);
+                        } else {
+                            cfg.selected_tab = cfg.tabs.last().map(|t| t.id);
                         }
+
+                        *store_config = true;
                     }
+
                     if ui.button("+").on_hover_text("New tab").clicked() {
                         cfg.tabs.push(TabConfig::default());
-                        cfg.selected_tab = cfg.tabs.len().saturating_sub(1);
+                        cfg.selected_tab = cfg.tabs.last().map(|t| t.id);
                         *store_config = true;
                     }
                 },
@@ -214,10 +197,9 @@ pub fn tab_bar_ui(cfg: &mut Config, ctx: &egui::Context, store_config: &mut bool
                 egui::vec2(settings_area_width, ui.spacing().interact_size.y),
                 egui::Layout::right_to_left(egui::Align::Max),
                 |ui| {
-                    let settings_tab_index = cfg.tabs.len();
-                    let settings_selected = cfg.selected_tab == settings_tab_index;
+                    let settings_selected = cfg.selected_tab == None;
                     if ui.selectable_label(settings_selected, "SETTINGS").clicked() {
-                        cfg.selected_tab = settings_tab_index;
+                        cfg.selected_tab = None;
                         *store_config = true;
                     }
                 },

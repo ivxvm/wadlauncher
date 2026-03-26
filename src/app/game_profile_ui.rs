@@ -88,8 +88,8 @@ fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureH
 }
 
 fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut bool) {
-    let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
+        let tab_config = cfg.get_selected_tab();
         ui.label("Game engine:");
         allocate_truncated_label_ui(ui, CONFIGURE_BUTTON_WIDTH, |ui| {
             ui.add(
@@ -115,7 +115,7 @@ fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut
                 .unwrap_or(".");
             let path = tfd::open_file_dialog("Select Game Engine", start_dir, None);
             if let Some(path) = path {
-                tab_config.engine_path = Some(path.clone());
+                cfg.get_selected_tab_mut().engine_path = Some(path.clone());
                 cfg.last_engine_dir = Path::new(&path)
                     .parent()
                     .map(|d| d.to_string_lossy().to_string());
@@ -131,14 +131,18 @@ fn iwad_config_ui(
     iwad_to_load: &mut Option<String>,
     store_config: &mut bool,
 ) {
-    let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
         ui.label("IWAD:");
         allocate_truncated_label_ui(ui, CONFIGURE_BUTTON_WIDTH, |ui| {
             ui.add(
                 egui::Label::new(
-                    egui::RichText::new(tab_config.iwad_path.as_deref().unwrap_or("<Empty>"))
-                        .monospace(),
+                    egui::RichText::new(
+                        cfg.get_selected_tab()
+                            .iwad_path
+                            .as_deref()
+                            .unwrap_or("<Empty>"),
+                    )
+                    .monospace(),
                 )
                 .truncate(),
             )
@@ -150,7 +154,8 @@ fn iwad_config_ui(
             )
             .clicked()
         {
-            let start_dir = tab_config
+            let start_dir = cfg
+                .get_selected_tab()
                 .iwad_path
                 .as_ref()
                 .and_then(|p| Path::new(p).parent().map(|d| d.to_str().unwrap_or(".")))
@@ -162,7 +167,7 @@ fn iwad_config_ui(
                 Some((&["*.WAD", "*.wad"], "WAD files (*.WAD, *.wad)")),
             );
             if let Some(path) = path {
-                tab_config.iwad_path = Some(path.clone());
+                cfg.get_selected_tab_mut().iwad_path = Some(path.clone());
                 cfg.last_iwad_dir = Path::new(&path)
                     .parent()
                     .map(|d| d.to_string_lossy().to_string());
@@ -179,10 +184,10 @@ fn input_files_config_ui(
     input_path_indexes_to_remove: &mut Vec<usize>,
     store_config: &mut bool,
 ) {
-    let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
     ui.horizontal(|ui| {
         ui.label("Input files:");
         if ui.button("Add").clicked() {
+            let tab_config = cfg.get_selected_tab();
             let start_dir = tab_config
                 .last_input_dir
                 .as_deref()
@@ -203,6 +208,7 @@ fn input_files_config_ui(
                 )),
             );
             if let Some(path) = path {
+                let tab_config = cfg.get_selected_tab_mut();
                 tab_config.input_paths.push(path.clone());
                 tab_config.last_input_dir = Path::new(&path)
                     .parent()
@@ -212,14 +218,15 @@ fn input_files_config_ui(
         }
     });
     ui.group(|ui| {
-        if tab_config.input_paths.is_empty() {
+        if cfg.get_selected_tab().input_paths.is_empty() {
             ui.label("<Empty>");
         }
-        let initial_len = tab_config.input_paths.len();
+        let initial_len = cfg.get_selected_tab().input_paths.len();
         for index in 0..initial_len {
             // Clone the path for display so we don't hold an immutable borrow while mutating the vec.
-            let path = tab_config.input_paths[index].clone();
+            let path = cfg.get_selected_tab().input_paths[index].clone();
             ui.horizontal(|ui| {
+                let tab_config = cfg.get_selected_tab_mut();
                 // Move up button (disabled for first item)
                 if ui
                     .add_enabled(index > 0, egui::Button::new("/\\"))
@@ -292,7 +299,7 @@ fn input_files_config_ui(
 }
 
 fn build_cmd(cfg: &Config) -> Option<Command> {
-    let tab_config = &cfg.tabs[cfg.selected_tab];
+    let tab_config = cfg.get_selected_tab();
     if let (Some(engine), Some(iwad)) = (
         tab_config.engine_path.as_ref(),
         tab_config.iwad_path.as_ref(),
@@ -327,13 +334,13 @@ fn command_line_ui(ui: &mut egui::Ui, clipboard: &mut Clipboard, cmd: &Option<Co
 pub fn game_profile_ui(
     titlepic_texture: &Option<egui::TextureHandle>,
     clipboard: &mut Clipboard,
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     cfg: &mut Config,
     input_path_indexes_to_remove: &mut Vec<usize>,
     iwad_to_load: &mut Option<String>,
     store_config: &mut bool,
 ) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
         render_background(ui, titlepic_texture);
         game_engine_config_ui(ui, cfg, store_config);
         iwad_config_ui(ui, cfg, iwad_to_load, store_config);

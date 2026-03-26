@@ -1,16 +1,27 @@
+use std::hash::Hash;
+
 use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TabConfig {
+    pub id: Uuid,
     pub engine_path: Option<String>,
     pub iwad_path: Option<String>,
     pub input_paths: Vec<String>,
     pub last_input_dir: Option<String>,
 }
 
+impl Hash for TabConfig {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
 impl Default for TabConfig {
     fn default() -> Self {
         Self {
+            id: Uuid::new_v4(),
             engine_path: None,
             iwad_path: None,
             input_paths: Vec::new(),
@@ -35,7 +46,7 @@ impl Default for TitleMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub tabs: Vec<TabConfig>,
-    pub selected_tab: usize,
+    pub selected_tab: Option<Uuid>,
     pub last_engine_dir: Option<String>,
     pub last_iwad_dir: Option<String>,
     pub window_width: Option<f32>,
@@ -52,7 +63,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             tabs: vec![TabConfig::default()],
-            selected_tab: 0,
+            selected_tab: None,
             last_engine_dir: None,
             last_iwad_dir: None,
             window_width: Some(640.0),
@@ -61,5 +72,23 @@ impl Default for Config {
             show_command_line: false,
             show_iwad_in_long_titles: false,
         }
+    }
+}
+
+impl Config {
+    pub fn get_selected_tab(&self) -> &TabConfig {
+        let tab_index = self
+            .tabs
+            .iter()
+            .position(|t| self.selected_tab == Some(t.id));
+        tab_index.and_then(|i| self.tabs.get(i)).unwrap()
+    }
+
+    pub fn get_selected_tab_mut(&mut self) -> &mut TabConfig {
+        let tab_index = self
+            .tabs
+            .iter()
+            .position(|t| self.selected_tab == Some(t.id));
+        tab_index.and_then(|i| self.tabs.get_mut(i)).unwrap()
     }
 }

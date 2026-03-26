@@ -2,8 +2,8 @@ use crate::config::{Config, TitleMode};
 use eframe::egui;
 
 /// Renders the Settings UI. Provides Title Mode dropdown and Show Command Line checkbox.
-pub fn settings_ui(ctx: &egui::Context, cfg: &mut Config, store_config: &mut bool) {
-    egui::CentralPanel::default().show(ctx, |ui| {
+pub fn settings_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut bool) {
+    egui::CentralPanel::default().show_inside(ui, |ui| {
         ui.horizontal(|ui| {
             ui.label("Tab title mode:");
 

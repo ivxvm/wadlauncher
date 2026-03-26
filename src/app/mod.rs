@@ -22,7 +22,7 @@ pub struct App {
 impl App {
     pub fn load_titlepic(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         iwad_path: Option<&str>,
         wad_path: Option<&str>,
     ) -> Option<()> {
@@ -43,13 +43,13 @@ impl App {
         };
         let color_img = ColorImage::from_rgba_unmultiplied([width, height], &img);
         self.titlepic_texture =
-            Some(ctx.load_texture("titlepic", color_img, egui::TextureOptions::default()));
+            Some(ui.load_texture("titlepic", color_img, egui::TextureOptions::default()));
         Some(())
     }
 
     /// Handles window resize and persists new size to config. Returns true if config changed.
-    fn handle_window_resize(&mut self, ctx: &egui::Context) -> bool {
-        let win_size = ctx.available_rect().size();
+    fn handle_window_resize(&mut self, ui: &mut egui::Ui) -> bool {
+        let win_size = ui.content_rect().size();
         if self.config.window_width != Some(win_size.x)
             || self.config.window_height != Some(win_size.y)
         {
@@ -61,10 +61,10 @@ impl App {
     }
 
     /// Checks if TITLEPIC needs to be reloaded and reloads if needed.
-    fn reload_titlepic_if_needed(&mut self, ctx: &egui::Context) {
+    fn reload_titlepic_if_needed(&mut self, ui: &mut egui::Ui) {
         let cfg = &self.config;
-        if cfg.selected_tab != cfg.tabs.len() {
-            let tab_config = &cfg.tabs[cfg.selected_tab];
+        if cfg.selected_tab != None {
+            let tab_config = cfg.get_selected_tab();
             let iwad_path = tab_config.iwad_path.clone();
             let wad_path = tab_config.input_paths.get(0).cloned();
             let mut need_titlepic = false;
@@ -74,7 +74,7 @@ impl App {
                     || self.titlepic_texture.is_none();
             }
             if need_titlepic {
-                self.load_titlepic(ctx, iwad_path.as_deref(), wad_path.as_deref());
+                self.load_titlepic(ui, iwad_path.as_deref(), wad_path.as_deref());
                 self.last_iwad_path = iwad_path;
                 self.last_wad_path = wad_path;
             }
@@ -83,32 +83,31 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
-        let mut should_store_config = self.handle_window_resize(ctx);
-        self.reload_titlepic_if_needed(ctx);
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let mut should_store_config = self.handle_window_resize(ui);
+        self.reload_titlepic_if_needed(ui);
         let mut input_path_indexes_to_remove = Vec::new();
         let mut iwad_to_load: Option<String> = None;
-        tab_bar_ui::tab_bar_ui(&mut self.config, ctx, &mut should_store_config);
+        tab_bar_ui::tab_bar_ui(&mut self.config, ui, &mut should_store_config);
         let cfg = &mut self.config;
 
-        if cfg.selected_tab == cfg.tabs.len() {
-            settings_ui::settings_ui(ctx, cfg, &mut should_store_config);
+        if cfg.selected_tab == None {
+            settings_ui::settings_ui(ui, cfg, &mut should_store_config);
         } else {
             game_profile_ui::game_profile_ui(
                 &self.titlepic_texture,
                 &mut self.clipboard,
-                ctx,
+                ui,
                 cfg,
                 &mut input_path_indexes_to_remove,
                 &mut iwad_to_load,
                 &mut should_store_config,
             );
 
-            let tab_config = cfg.tabs.get_mut(cfg.selected_tab).unwrap();
             input_path_indexes_to_remove.sort();
 
             for index in input_path_indexes_to_remove.iter().rev() {
-                tab_config.input_paths.remove(*index);
+                cfg.get_selected_tab_mut().input_paths.remove(*index);
                 should_store_config = true;
             }
         }
