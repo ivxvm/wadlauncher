@@ -46,7 +46,7 @@ impl Default for TitleMode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub tabs: Vec<TabConfig>,
-    pub selected_tab: Option<Uuid>,
+    pub active_tab: Option<Uuid>,
     pub last_engine_dir: Option<String>,
     pub last_iwad_dir: Option<String>,
     pub window_width: Option<f32>,
@@ -63,7 +63,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             tabs: vec![TabConfig::default()],
-            selected_tab: None,
+            active_tab: None,
             last_engine_dir: None,
             last_iwad_dir: None,
             window_width: Some(640.0),
@@ -76,19 +76,19 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn get_selected_tab(&self) -> &TabConfig {
-        let tab_index = self
-            .tabs
-            .iter()
-            .position(|t| self.selected_tab == Some(t.id));
-        tab_index.and_then(|i| self.tabs.get(i)).unwrap()
+    pub fn get_active_tab_index(&self) -> Option<usize> {
+        self.tabs.iter().position(|t| self.active_tab == Some(t.id))
     }
 
-    pub fn get_selected_tab_mut(&mut self) -> &mut TabConfig {
-        let tab_index = self
-            .tabs
-            .iter()
-            .position(|t| self.selected_tab == Some(t.id));
-        tab_index.and_then(|i| self.tabs.get_mut(i)).unwrap()
+    pub fn get_active_tab(&self) -> &TabConfig {
+        self.get_active_tab_index()
+            .and_then(|i| self.tabs.get(i))
+            .unwrap()
+    }
+
+    pub fn get_active_tab_mut(&mut self) -> &mut TabConfig {
+        self.get_active_tab_index()
+            .and_then(|i| self.tabs.get_mut(i))
+            .unwrap()
     }
 }

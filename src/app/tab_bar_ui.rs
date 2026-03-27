@@ -2,6 +2,7 @@ use crate::config::{Config, TabConfig};
 use eframe::egui;
 use egui_dnd::dnd;
 use std::path::Path;
+use uuid::Uuid;
 
 fn sanitize_tab_name_part(s: &str) -> String {
     let mut out = s.to_string();
@@ -129,6 +130,16 @@ fn compute_long_width(ui: &egui::Ui, long_titles: &[String]) -> f32 {
 }
 
 pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) {
+    #[derive(PartialEq)]
+    enum TabAction {
+        None,
+        Activate(Uuid),
+        Duplicate(Uuid),
+        Close(usize),
+        CreateNew,
+        OpenSettings,
+    }
+
     egui::Panel::top("tab_bar").show_inside(ui, |ui| {
         let long_titles = build_long_titles(cfg);
         let short_titles = build_short_titles(cfg);
@@ -138,6 +149,8 @@ pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) 
             crate::config::TitleMode::Short => true,
             crate::config::TitleMode::Long => false,
         };
+
+        let mut action = TabAction::None;
 
         // We'll reserve a small area on the right for the persistent Settings tab.
         let settings_area_width = 100.0; // pixels reserved on the right for Settings
@@ -150,7 +163,6 @@ pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) 
                 egui::Layout::left_to_right(egui::Align::Center),
                 |ui| {
                     let tabs_count = cfg.tabs.len();
-                    let mut closed_tab_index: Option<usize> = None;
 
                     dnd(ui, "tabs_dnd").show_vec(&mut cfg.tabs, |ui, item, handle, state| {
                         let tab_title = if use_short_titles {
@@ -158,34 +170,25 @@ pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) 
                         } else {
                             &long_titles[state.index]
                         };
-                        let is_selected = cfg.selected_tab == Some(item.id);
+                        let is_selected = cfg.active_tab == Some(item.id);
                         handle.show_drag_cursor_on_hover(false).ui(ui, |ui| {
                             if ui.selectable_label(is_selected, tab_title).clicked() {
-                                cfg.selected_tab = Some(item.id);
-                                *store_config = true;
+                                if ui.input(|i| i.modifiers.ctrl) {
+                                    action = TabAction::Duplicate(item.id);
+                                } else {
+                                    action = TabAction::Activate(item.id);
+                                }
                             }
                             if tabs_count > 1 {
                                 if ui.button("×").on_hover_text("Close tab").clicked() {
-                                    closed_tab_index = Some(state.index);
+                                    action = TabAction::Close(state.index);
                                 }
                             }
                         });
                     });
 
-                    if let Some(index) = closed_tab_index {
-                        if index < tabs_count - 1 {
-                            cfg.selected_tab = cfg.tabs.get(index).map(|t| t.id);
-                        } else {
-                            cfg.selected_tab = cfg.tabs.last().map(|t| t.id);
-                        }
-
-                        *store_config = true;
-                    }
-
                     if ui.button("+").on_hover_text("New tab").clicked() {
-                        cfg.tabs.push(TabConfig::default());
-                        cfg.selected_tab = cfg.tabs.last().map(|t| t.id);
-                        *store_config = true;
+                        action = TabAction::CreateNew;
                     }
                 },
             );
@@ -197,13 +200,50 @@ pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) 
                 egui::vec2(settings_area_width, ui.spacing().interact_size.y),
                 egui::Layout::right_to_left(egui::Align::Max),
                 |ui| {
-                    let settings_selected = cfg.selected_tab == None;
+                    let settings_selected = cfg.active_tab == None;
                     if ui.selectable_label(settings_selected, "SETTINGS").clicked() {
-                        cfg.selected_tab = None;
-                        *store_config = true;
+                        action = TabAction::OpenSettings;
                     }
                 },
             );
         });
+
+        match action {
+            TabAction::Activate(id) => {
+                cfg.active_tab = Some(id);
+            }
+            TabAction::Close(index) => {
+                let active_tab_index = cfg.get_active_tab_index().unwrap_or(0);
+                cfg.tabs.remove(index);
+                if active_tab_index == index {
+                    if active_tab_index < cfg.tabs.len() - 1 {
+                        cfg.active_tab = cfg.tabs.get(active_tab_index).map(|t| t.id);
+                    } else {
+                        cfg.active_tab = cfg.tabs.last().map(|t| t.id);
+                    }
+                }
+            }
+            TabAction::CreateNew => {
+                cfg.tabs.push(TabConfig::default());
+                cfg.active_tab = cfg.tabs.last().map(|t| t.id);
+            }
+            TabAction::Duplicate(id) => {
+                let index = cfg.tabs.iter().position(|t| t.id == id).unwrap_or(0);
+                let tab_config = cfg.tabs.get(index).cloned();
+                cfg.tabs.insert(
+                    index + 1,
+                    TabConfig {
+                        id: Uuid::new_v4(),
+                        ..tab_config.unwrap_or_default()
+                    },
+                );
+            }
+            TabAction::OpenSettings => {
+                cfg.active_tab = None;
+            }
+            TabAction::None => {}
+        }
+
+        *store_config = action != TabAction::None;
     });
 }

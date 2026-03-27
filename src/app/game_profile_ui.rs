@@ -89,7 +89,7 @@ fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureH
 
 fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut bool) {
     ui.horizontal(|ui| {
-        let tab_config = cfg.get_selected_tab();
+        let tab_config = cfg.get_active_tab();
         ui.label("Game engine:");
         allocate_truncated_label_ui(ui, CONFIGURE_BUTTON_WIDTH, |ui| {
             ui.add(
@@ -115,7 +115,7 @@ fn game_engine_config_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mut
                 .unwrap_or(".");
             let path = tfd::open_file_dialog("Select Game Engine", start_dir, None);
             if let Some(path) = path {
-                cfg.get_selected_tab_mut().engine_path = Some(path.clone());
+                cfg.get_active_tab_mut().engine_path = Some(path.clone());
                 cfg.last_engine_dir = Path::new(&path)
                     .parent()
                     .map(|d| d.to_string_lossy().to_string());
@@ -137,7 +137,7 @@ fn iwad_config_ui(
             ui.add(
                 egui::Label::new(
                     egui::RichText::new(
-                        cfg.get_selected_tab()
+                        cfg.get_active_tab()
                             .iwad_path
                             .as_deref()
                             .unwrap_or("<Empty>"),
@@ -155,7 +155,7 @@ fn iwad_config_ui(
             .clicked()
         {
             let start_dir = cfg
-                .get_selected_tab()
+                .get_active_tab()
                 .iwad_path
                 .as_ref()
                 .and_then(|p| Path::new(p).parent().map(|d| d.to_str().unwrap_or(".")))
@@ -167,7 +167,7 @@ fn iwad_config_ui(
                 Some((&["*.WAD", "*.wad"], "WAD files (*.WAD, *.wad)")),
             );
             if let Some(path) = path {
-                cfg.get_selected_tab_mut().iwad_path = Some(path.clone());
+                cfg.get_active_tab_mut().iwad_path = Some(path.clone());
                 cfg.last_iwad_dir = Path::new(&path)
                     .parent()
                     .map(|d| d.to_string_lossy().to_string());
@@ -187,7 +187,7 @@ fn input_files_config_ui(
     ui.horizontal(|ui| {
         ui.label("Input files:");
         if ui.button("Add").clicked() {
-            let tab_config = cfg.get_selected_tab();
+            let tab_config = cfg.get_active_tab();
             let start_dir = tab_config
                 .last_input_dir
                 .as_deref()
@@ -208,7 +208,7 @@ fn input_files_config_ui(
                 )),
             );
             if let Some(path) = path {
-                let tab_config = cfg.get_selected_tab_mut();
+                let tab_config = cfg.get_active_tab_mut();
                 tab_config.input_paths.push(path.clone());
                 tab_config.last_input_dir = Path::new(&path)
                     .parent()
@@ -218,15 +218,15 @@ fn input_files_config_ui(
         }
     });
     ui.group(|ui| {
-        if cfg.get_selected_tab().input_paths.is_empty() {
+        if cfg.get_active_tab().input_paths.is_empty() {
             ui.label("<Empty>");
         }
-        let initial_len = cfg.get_selected_tab().input_paths.len();
+        let initial_len = cfg.get_active_tab().input_paths.len();
         for index in 0..initial_len {
             // Clone the path for display so we don't hold an immutable borrow while mutating the vec.
-            let path = cfg.get_selected_tab().input_paths[index].clone();
+            let path = cfg.get_active_tab().input_paths[index].clone();
             ui.horizontal(|ui| {
-                let tab_config = cfg.get_selected_tab_mut();
+                let tab_config = cfg.get_active_tab_mut();
                 // Move up button (disabled for first item)
                 if ui
                     .add_enabled(index > 0, egui::Button::new("/\\"))
@@ -299,7 +299,7 @@ fn input_files_config_ui(
 }
 
 fn build_cmd(cfg: &Config) -> Option<Command> {
-    let tab_config = cfg.get_selected_tab();
+    let tab_config = cfg.get_active_tab();
     if let (Some(engine), Some(iwad)) = (
         tab_config.engine_path.as_ref(),
         tab_config.iwad_path.as_ref(),

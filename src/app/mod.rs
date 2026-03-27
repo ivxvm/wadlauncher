@@ -63,8 +63,8 @@ impl App {
     /// Checks if TITLEPIC needs to be reloaded and reloads if needed.
     fn reload_titlepic_if_needed(&mut self, ui: &mut egui::Ui) {
         let cfg = &self.config;
-        if cfg.selected_tab != None {
-            let tab_config = cfg.get_selected_tab();
+        if cfg.active_tab != None {
+            let tab_config = cfg.get_active_tab();
             let iwad_path = tab_config.iwad_path.clone();
             let wad_path = tab_config.input_paths.get(0).cloned();
             let mut need_titlepic = false;
@@ -91,7 +91,7 @@ impl eframe::App for App {
         tab_bar_ui::tab_bar_ui(&mut self.config, ui, &mut should_store_config);
         let cfg = &mut self.config;
 
-        if cfg.selected_tab == None {
+        if cfg.active_tab == None {
             settings_ui::settings_ui(ui, cfg, &mut should_store_config);
         } else {
             game_profile_ui::game_profile_ui(
@@ -107,7 +107,7 @@ impl eframe::App for App {
             input_path_indexes_to_remove.sort();
 
             for index in input_path_indexes_to_remove.iter().rev() {
-                cfg.get_selected_tab_mut().input_paths.remove(*index);
+                cfg.get_active_tab_mut().input_paths.remove(*index);
                 should_store_config = true;
             }
         }
