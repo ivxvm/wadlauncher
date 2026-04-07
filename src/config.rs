@@ -10,6 +10,12 @@ pub struct TabConfig {
     pub iwad_path: Option<String>,
     pub input_paths: Vec<String>,
     pub last_input_dir: Option<String>,
+    #[serde(default)]
+    pub use_mangohud: bool,
+    #[serde(default)]
+    pub use_umu_run: bool,
+    #[serde(default)]
+    pub proton_runner: String,
 }
 
 impl Hash for TabConfig {
@@ -26,6 +32,9 @@ impl Default for TabConfig {
             iwad_path: None,
             input_paths: Vec::new(),
             last_input_dir: None,
+            use_mangohud: false,
+            use_umu_run: false,
+            proton_runner: "".to_owned(),
         }
     }
 }

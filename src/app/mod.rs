@@ -1,3 +1,4 @@
+#[path = "game_profile_ui/_mod.rs"]
 mod game_profile_ui;
 mod settings_ui;
 mod tab_bar_ui;

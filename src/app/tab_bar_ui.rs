@@ -152,7 +152,6 @@ pub fn tab_bar_ui(cfg: &mut Config, ui: &mut egui::Ui, store_config: &mut bool) 
 
         let mut action = TabAction::None;
 
-        // We'll reserve a small area on the right for the persistent Settings tab.
         let settings_area_width = 100.0; // pixels reserved on the right for Settings
         let left_area_width = (ui.available_width() - settings_area_width).max(0.0);
 
