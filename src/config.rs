@@ -13,6 +13,8 @@ pub struct TabConfig {
     #[serde(default)]
     pub use_mangohud: bool,
     #[serde(default)]
+    pub mangohud_mode: MangohudMode,
+    #[serde(default)]
     pub use_umu_run: bool,
     #[serde(default)]
     pub proton_runner: String,
@@ -33,9 +35,22 @@ impl Default for TabConfig {
             input_paths: Vec::new(),
             last_input_dir: None,
             use_mangohud: false,
+            mangohud_mode: MangohudMode::default(),
             use_umu_run: false,
             proton_runner: "".to_owned(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum MangohudMode {
+    Env,
+    Bin,
+}
+
+impl Default for MangohudMode {
+    fn default() -> Self {
+        MangohudMode::Env
     }
 }
 

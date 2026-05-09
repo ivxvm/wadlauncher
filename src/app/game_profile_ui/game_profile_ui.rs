@@ -4,7 +4,7 @@ use crate::app::game_profile_ui::input_files_config_ui::input_files_config_ui;
 use crate::app::game_profile_ui::iwad_config_ui::iwad_config_ui;
 #[cfg(target_os = "linux")]
 use crate::app::game_profile_ui::wrappers_ui::wrappers_ui;
-use crate::config::Config;
+use crate::config::{Config, MangohudMode};
 use arboard::Clipboard;
 use eframe::egui;
 use std::process::Command;
@@ -51,30 +51,36 @@ fn render_background(ui: &mut egui::Ui, titlepic_texture: &Option<egui::TextureH
 
 fn build_cmd(cfg: &Config) -> Option<Command> {
     let tab_config = cfg.get_active_tab();
-    if let (Some(engine), Some(iwad)) = (
-        tab_config.engine_path.as_ref(),
-        tab_config.iwad_path.as_ref(),
-    ) {
-        let mut cmd = if tab_config.use_umu_run {
-            let mut cmd = Command::new("umu-run");
-            cmd.env("PROTONPATH", &tab_config.proton_runner);
-            cmd.arg(engine);
-            cmd
-        } else {
-            Command::new(engine)
-        };
+    let engine = tab_config.engine_path.as_ref()?;
+    let iwad = tab_config.iwad_path.as_ref()?;
 
-        if tab_config.use_mangohud {
-            cmd.env("MANGOHUD", "1");
-        }
+    let mut argv: Vec<&str> = Vec::new();
 
-        cmd.arg("-iwad")
-            .arg(iwad)
-            .arg("-file")
-            .args(&tab_config.input_paths);
-
-        Some(cmd)
-    } else {
-        None
+    if tab_config.use_mangohud && tab_config.mangohud_mode == MangohudMode::Bin {
+        argv.push("mangohud");
     }
+
+    if tab_config.use_umu_run {
+        argv.push("umu-run");
+    }
+
+    argv.push(engine.as_str());
+    argv.push("-iwad");
+    argv.push(iwad.as_str());
+    argv.push("-file");
+
+    argv.extend(tab_config.input_paths.iter().map(String::as_str));
+
+    let mut cmd = Command::new(argv[0]);
+    cmd.args(&argv[1..]);
+
+    if tab_config.use_umu_run {
+        cmd.env("PROTONPATH", &tab_config.proton_runner);
+    }
+
+    if tab_config.use_mangohud && tab_config.mangohud_mode == MangohudMode::Env {
+        cmd.env("MANGOHUD", "1");
+    }
+
+    Some(cmd)
 }

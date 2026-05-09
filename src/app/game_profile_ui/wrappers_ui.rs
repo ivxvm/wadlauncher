@@ -1,9 +1,11 @@
-use crate::config::Config;
+use crate::config::{Config, MangohudMode};
 use eframe::egui;
 use std::fs;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 static PROTON_RUNNERS: OnceLock<Mutex<Vec<ProtonRunner>>> = OnceLock::new();
+
+const WRAPPER_CHECKBOX_WIDTH: f32 = 88.0;
 
 struct ProtonRunner {
     name: String,
@@ -23,10 +25,10 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
 
     ui.group(|ui| {
         ui.horizontal(|ui| {
-            if ui
-                .checkbox(&mut tab_config.use_umu_run, "umu-run")
-                .changed()
-            {
+            let umu_run_response =
+                wrapper_checkbox_ui(ui, |ui| ui.checkbox(&mut tab_config.use_umu_run, "umu-run"));
+
+            if umu_run_response.changed() {
                 *store_config = true;
             }
 
@@ -76,13 +78,47 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
             }
         });
 
-        if ui
-            .checkbox(&mut tab_config.use_mangohud, "mangohud")
-            .changed()
-        {
-            *store_config = true;
-        }
+        ui.horizontal(|ui| {
+            let mangohud_response = wrapper_checkbox_ui(ui, |ui| {
+                ui.checkbox(&mut tab_config.use_mangohud, "mangohud")
+            });
+
+            if mangohud_response.changed() {
+                *store_config = true;
+            }
+
+            let mut current = tab_config.mangohud_mode;
+
+            egui::ComboBox::from_label("")
+                .selected_text(match current {
+                    MangohudMode::Env => "Env",
+                    MangohudMode::Bin => "Bin",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut current, MangohudMode::Env, "Env");
+                    ui.selectable_value(&mut current, MangohudMode::Bin, "Bin");
+                });
+
+            if current != tab_config.mangohud_mode {
+                tab_config.mangohud_mode = current;
+                *store_config = true;
+            }
+        });
     });
+}
+
+fn wrapper_checkbox_ui(
+    ui: &mut egui::Ui,
+    add_contents: impl FnOnce(&mut egui::Ui) -> egui::Response,
+) -> egui::Response {
+    let response = add_contents(ui);
+    let remaining_width = WRAPPER_CHECKBOX_WIDTH - response.rect.width();
+
+    if remaining_width > 0.0 {
+        ui.add_space(remaining_width);
+    }
+
+    response
 }
 
 fn get_installed_proton_runners_cache() -> MutexGuard<'static, Vec<ProtonRunner>> {
