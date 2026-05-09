@@ -15,6 +15,10 @@ pub struct TabConfig {
     #[serde(default)]
     pub mangohud_mode: MangohudMode,
     #[serde(default)]
+    pub use_prime_run: bool,
+    #[serde(default)]
+    pub prime_run_mode: PrimeRunMode,
+    #[serde(default)]
     pub use_umu_run: bool,
     #[serde(default)]
     pub proton_runner: String,
@@ -36,9 +40,23 @@ impl Default for TabConfig {
             last_input_dir: None,
             use_mangohud: false,
             mangohud_mode: MangohudMode::default(),
+            use_prime_run: false,
+            prime_run_mode: PrimeRunMode::default(),
             use_umu_run: false,
             proton_runner: "".to_owned(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum PrimeRunMode {
+    Env,
+    Bin,
+}
+
+impl Default for PrimeRunMode {
+    fn default() -> Self {
+        PrimeRunMode::Env
     }
 }
 

@@ -1,11 +1,11 @@
-use crate::config::{Config, MangohudMode};
+use crate::config::{Config, MangohudMode, PrimeRunMode};
 use eframe::egui;
 use std::fs;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 static PROTON_RUNNERS: OnceLock<Mutex<Vec<ProtonRunner>>> = OnceLock::new();
 
-const WRAPPER_CHECKBOX_WIDTH: f32 = 80.0;
+const WRAPPER_CHECKBOX_WIDTH: f32 = 84.0;
 const WRAPPER_DROPDOWN_WIDTH: f32 = 180.0;
 
 struct ProtonRunner {
@@ -25,6 +25,62 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
     ui.label("Wrappers:");
 
     ui.group(|ui| {
+        ui.horizontal(|ui| {
+            let mangohud_response = wrapper_checkbox_ui(ui, |ui| {
+                ui.checkbox(&mut tab_config.use_mangohud, "mangohud")
+            });
+
+            if mangohud_response.changed() {
+                *store_config = true;
+            }
+
+            let mut current = tab_config.mangohud_mode;
+
+            egui::ComboBox::from_id_salt("mangohud_mode")
+                .width(WRAPPER_DROPDOWN_WIDTH)
+                .selected_text(match current {
+                    MangohudMode::Env => "Env",
+                    MangohudMode::Bin => "Bin",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut current, MangohudMode::Env, "Env");
+                    ui.selectable_value(&mut current, MangohudMode::Bin, "Bin");
+                });
+
+            if current != tab_config.mangohud_mode {
+                tab_config.mangohud_mode = current;
+                *store_config = true;
+            }
+        });
+
+        ui.horizontal(|ui| {
+            let prime_run_response = wrapper_checkbox_ui(ui, |ui| {
+                ui.checkbox(&mut tab_config.use_prime_run, "prime-run")
+            });
+
+            if prime_run_response.changed() {
+                *store_config = true;
+            }
+
+            let mut current = tab_config.prime_run_mode;
+
+            egui::ComboBox::from_id_salt("prime_run_mode")
+                .width(WRAPPER_DROPDOWN_WIDTH)
+                .selected_text(match current {
+                    PrimeRunMode::Env => "Env",
+                    PrimeRunMode::Bin => "Bin",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut current, PrimeRunMode::Env, "Env");
+                    ui.selectable_value(&mut current, PrimeRunMode::Bin, "Bin");
+                });
+
+            if current != tab_config.prime_run_mode {
+                tab_config.prime_run_mode = current;
+                *store_config = true;
+            }
+        });
+
         ui.horizontal(|ui| {
             let umu_run_response =
                 wrapper_checkbox_ui(ui, |ui| ui.checkbox(&mut tab_config.use_umu_run, "umu-run"));
@@ -78,34 +134,6 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
                 {
                     tab_config.proton_runner = String::new();
                 }
-            }
-        });
-
-        ui.horizontal(|ui| {
-            let mangohud_response = wrapper_checkbox_ui(ui, |ui| {
-                ui.checkbox(&mut tab_config.use_mangohud, "mangohud")
-            });
-
-            if mangohud_response.changed() {
-                *store_config = true;
-            }
-
-            let mut current = tab_config.mangohud_mode;
-
-            egui::ComboBox::from_id_salt("mangohud_mode")
-                .width(WRAPPER_DROPDOWN_WIDTH)
-                .selected_text(match current {
-                    MangohudMode::Env => "Env",
-                    MangohudMode::Bin => "Bin",
-                })
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut current, MangohudMode::Env, "Env");
-                    ui.selectable_value(&mut current, MangohudMode::Bin, "Bin");
-                });
-
-            if current != tab_config.mangohud_mode {
-                tab_config.mangohud_mode = current;
-                *store_config = true;
             }
         });
     });

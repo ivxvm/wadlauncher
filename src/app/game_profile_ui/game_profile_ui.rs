@@ -4,7 +4,7 @@ use crate::app::game_profile_ui::input_files_config_ui::input_files_config_ui;
 use crate::app::game_profile_ui::iwad_config_ui::iwad_config_ui;
 #[cfg(target_os = "linux")]
 use crate::app::game_profile_ui::wrappers_ui::wrappers_ui;
-use crate::config::{Config, MangohudMode};
+use crate::config::{Config, MangohudMode, PrimeRunMode};
 use arboard::Clipboard;
 use eframe::egui;
 use std::process::Command;
@@ -60,6 +60,10 @@ fn build_cmd(cfg: &Config) -> Option<Command> {
         argv.push("mangohud");
     }
 
+    if tab_config.use_prime_run && tab_config.prime_run_mode == PrimeRunMode::Bin {
+        argv.push("prime-run");
+    }
+
     if tab_config.use_umu_run {
         argv.push("umu-run");
     }
@@ -80,6 +84,12 @@ fn build_cmd(cfg: &Config) -> Option<Command> {
 
     if tab_config.use_mangohud && tab_config.mangohud_mode == MangohudMode::Env {
         cmd.env("MANGOHUD", "1");
+    }
+
+    if tab_config.use_prime_run && tab_config.prime_run_mode == PrimeRunMode::Env {
+        cmd.env("__NV_PRIME_RENDER_OFFLOAD", "1")
+            .env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
+            .env("__VK_LAYER_NV_optimus", "NVIDIA_only");
     }
 
     Some(cmd)
