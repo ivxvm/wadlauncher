@@ -5,7 +5,8 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 static PROTON_RUNNERS: OnceLock<Mutex<Vec<ProtonRunner>>> = OnceLock::new();
 
-const WRAPPER_CHECKBOX_WIDTH: f32 = 88.0;
+const WRAPPER_CHECKBOX_WIDTH: f32 = 80.0;
+const WRAPPER_DROPDOWN_WIDTH: f32 = 180.0;
 
 struct ProtonRunner {
     name: String,
@@ -34,7 +35,8 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
 
             if proton_runners.is_empty() {
                 ui.add_enabled_ui(false, |ui| {
-                    egui::ComboBox::from_label("")
+                    egui::ComboBox::from_id_salt("proton_runner")
+                        .width(WRAPPER_DROPDOWN_WIDTH)
                         .selected_text("<No Proton runners>")
                         .show_ui(ui, |_| {});
                 });
@@ -46,7 +48,8 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
 
                 let selected_before = selected_index;
 
-                egui::ComboBox::from_label("")
+                egui::ComboBox::from_id_salt("proton_runner")
+                    .width(WRAPPER_DROPDOWN_WIDTH)
                     .selected_text(proton_runners[selected_index].name.as_str())
                     .show_ui(ui, |ui| {
                         for (index, option) in proton_runners.iter().enumerate() {
@@ -89,7 +92,8 @@ pub(super) fn wrappers_ui(ui: &mut egui::Ui, cfg: &mut Config, store_config: &mu
 
             let mut current = tab_config.mangohud_mode;
 
-            egui::ComboBox::from_label("")
+            egui::ComboBox::from_id_salt("mangohud_mode")
+                .width(WRAPPER_DROPDOWN_WIDTH)
                 .selected_text(match current {
                     MangohudMode::Env => "Env",
                     MangohudMode::Bin => "Bin",
@@ -144,16 +148,21 @@ fn find_installed_proton_runners() -> Vec<ProtonRunner> {
 
     let mut options = Vec::new();
 
-    let compatibilitytools_dir = format!("{home}/.steam/steam/compatibilitytools.d");
+    let compatibilitytools_dirs = [
+        format!("{home}/.steam/steam/compatibilitytools.d"),
+        format!("{home}/.var/app/com.valvesoftware.Steam/data/Steam/compatibilitytools.d"),
+    ];
 
-    if let Ok(entries) = fs::read_dir(compatibilitytools_dir) {
-        for entry in entries.flatten() {
-            if entry.path().is_dir() {
-                if let Some(name) = entry.file_name().to_str() {
-                    options.push(ProtonRunner {
-                        name: name.to_string(),
-                        path: entry.path().to_str().unwrap_or_default().to_owned(),
-                    });
+    for compatibilitytools_dir in compatibilitytools_dirs {
+        if let Ok(entries) = fs::read_dir(compatibilitytools_dir) {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        options.push(ProtonRunner {
+                            name: name.to_string(),
+                            path: entry.path().to_str().unwrap_or_default().to_owned(),
+                        });
+                    }
                 }
             }
         }
